@@ -2,12 +2,71 @@ import { Injectable } from '@nestjs/common';
 import type { QuestionRepositoryPort } from '../domain/ports/question-repository.port';
 import { Question } from '../domain/entities/question';
 
+export type PublishInput = {
+  text: string;
+  options?: unknown;
+  source?: string;
+  confidence?: number; // 0..1
+  rawMetadata?: Record<string, any>;
+};
+
+export type PublishResult =
+  | { result: 'created'; questionId: string }
+  | { result: 'duplicate' }
+  | { result: 'invalid'; questionId: string };
+
+const MAX_CONTENT_LENGTH = 2000;
+const MIN_CONFIDENCE = Number(process.env.MIN_CONFIDENCE ?? 0.6);
+
+function normalizeText(input: string): string {
+  if (!input) return '';
+  let t = input.replace(/<[^>]*>/g, ' ');
+  t = t
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+  t = t.replace(/\s+/g, ' ').trim();
+  return t;
+}
+
 @Injectable()
 export class PublishGeneratedQuestionUseCase {
   constructor(private readonly questionRepo: QuestionRepositoryPort) {}
 
-  async execute(content: string): Promise<Question> {
-    const question = Question.create(content);
-    return this.questionRepo.save(question);
+  async execute(input: PublishInput): Promise<PublishResult> {
+    if (!input || typeof input.text !== 'string') {
+      throw new Error('Invalid input: text is required');
+    }
+
+    let normalized = normalizeText(input.text);
+    if (!normalized) {
+      throw new Error('Question empty after normalization');
+    }
+
+    if (normalized.length > MAX_CONTENT_LENGTH) {
+      normalized = normalized.substring(0, MAX_CONTENT_LENGTH);
+    }
+
+    const existing = await this.questionRepo.findAll();
+    const normalizedSet = new Set(
+      existing.map((q) => normalizeText(q.content)),
+    );
+    if (normalizedSet.has(normalized)) {
+      return { result: 'duplicate' };
+    }
+
+    const question = Question.create(normalized);
+
+    const confidence = typeof input.confidence === 'number' ? input.confidence : 1;
+
+    const saved = await this.questionRepo.save(question);
+
+    if (confidence < MIN_CONFIDENCE) {
+      return { result: 'invalid', questionId: saved.id };
+    }
+
+    return { result: 'created', questionId: saved.id };
   }
 }

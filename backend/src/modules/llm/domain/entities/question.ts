@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 export class Question {
   constructor(
     public readonly id: string,
@@ -10,10 +12,6 @@ export class Question {
   }
 
   static create(content: string): Question {
-    return new Question(
-      crypto.randomUUID(),
-      content,
-      new Date(),
-    );
+    return new Question(randomUUID(), content, new Date());
   }
 }
