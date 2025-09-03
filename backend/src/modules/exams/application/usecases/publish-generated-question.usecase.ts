@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { QuestionRepositoryPort } from '../domain/ports/question-repository.port';
-import { Question } from '../domain/entities/question';
+import { Question } from '../../domain/entities/question.entity';
+import type { QuestionRepositoryPort } from '../../domain/ports/question-repository.port';
 
 export type PublishInput = {
   text: string;
   options?: unknown;
   source?: string;
-  confidence?: number; // 0..1
+  confidence?: number;
   rawMetadata?: Record<string, any>;
 };
 
@@ -50,19 +50,15 @@ export class PublishGeneratedQuestionUseCase {
     }
 
     const existing = await this.questionRepo.findAll();
-    const normalizedSet = new Set(
-      existing.map((q) => normalizeText(q.content)),
-    );
+    const normalizedSet = new Set(existing.map((q) => normalizeText(q.text)));
     if (normalizedSet.has(normalized)) {
       return { result: 'duplicate' };
     }
 
     const question = Question.create(normalized);
-
-    const confidence = typeof input.confidence === 'number' ? input.confidence : 1;
-
     const saved = await this.questionRepo.save(question);
 
+    const confidence = typeof input.confidence === 'number' ? input.confidence : 1;
     if (confidence < MIN_CONFIDENCE) {
       return { result: 'invalid', questionId: saved.id };
     }

@@ -1,6 +1,6 @@
-import { PublishGeneratedQuestionUseCase } from './publish-generated-question.usecase';
-import type { QuestionRepositoryPort } from '../domain/ports/question-repository.port';
-import { Question } from '../domain/entities/question';
+import { PublishGeneratedQuestionUseCase } from '../usecases/publish-generated-question.usecase';
+import type { QuestionRepositoryPort } from '../../domain/ports/question-repository.port';
+import { Question } from '../../domain/entities/question.entity';
 
 describe('PublishGeneratedQuestionUseCase', () => {
   let repoMock: jest.Mocked<QuestionRepositoryPort>;
@@ -11,6 +11,7 @@ describe('PublishGeneratedQuestionUseCase', () => {
       save: jest.fn(),
       findById: jest.fn(),
       findAll: jest.fn(),
+      findByStatus: jest.fn(),
     };
     useCase = new PublishGeneratedQuestionUseCase(repoMock);
   });
@@ -30,7 +31,6 @@ describe('PublishGeneratedQuestionUseCase', () => {
 
   it('returns duplicate when normalized text already exists', async () => {
     const txt = '<p>Hello</p>';
-    // existing question with same normalized content "Hello"
     const existing = Question.create('Hello');
     repoMock.findAll.mockResolvedValue([existing]);
 
