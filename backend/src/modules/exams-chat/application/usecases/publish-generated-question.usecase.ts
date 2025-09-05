@@ -16,7 +16,7 @@ export type PublishResult =
   | { result: 'duplicate' }
   | { result: 'invalid'; questionId: string };
 
-const MAX_CONTENT_LENGTH = 2000;
+const MAX_CONTENT_LENGTH = 1500;
 const MIN_CONFIDENCE = Number(process.env.MIN_CONFIDENCE ?? 0.6);
 
 function normalizeText(input: string): string {
