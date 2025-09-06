@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 
 export type QuestionStatus = 'generated' | 'invalid' | 'published';
-export type QuestionType = 'multiple_choice' | 'true_false';
+
+export type QuestionType = 'multiple_choice' | 'true_false' | 'open_analysis' | 'open_exercise';
 
 export class Question {
   public readonly id: string;
@@ -11,7 +12,7 @@ export class Question {
 
   constructor(
     public readonly text: string,
-    public readonly type: QuestionType = 'multiple_choice',
+    public readonly type: QuestionType = 'open_analysis',
     public readonly options?: string[] | null,
     public readonly source?: string,
     confidence?: number,
@@ -26,23 +27,14 @@ export class Question {
 
     if (!text?.trim()) throw new Error('Question.text es obligatorio');
     if (text.length > 2000) throw new Error('Question.text excede el máximo de 2000 caracteres');
-
-    if (this.status === 'published') {
-      if (this.type === 'multiple_choice') {
-        if (!options || !Array.isArray(options) || options.length !== 4) {
-          throw new Error('multiple_choice publicado requiere exactamente 4 opciones.');
-        }
-      } else if (this.type === 'true_false') {
-        if (!options || !Array.isArray(options) || options.length !== 2) {
-          throw new Error('true_false publicado requiere exactamente 2 opciones.');
-        }
-      }
+    if (type === 'multiple_choice' && (!options || options.length < 2)) {
+      throw new Error('multiple_choice requiere al menos 2 opciones.');
     }
   }
 
   static create(
     text: string,
-    type: QuestionType = 'multiple_choice',
+    type: QuestionType = 'open_analysis',
     options?: string[] | null,
     source?: string,
     confidence?: number,

@@ -1,16 +1,9 @@
-import React from "react";
 import { Modal, Button, Typography, Space, Divider, theme } from "antd";
 import { BookOutlined } from "@ant-design/icons";
 
 const { Text, Title } = Typography;
 
-interface TestModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSelectDifficulty: (difficulty: number) => void;
-}
-
-export default function TestModal({ open, onClose, onSelectDifficulty }: TestModalProps) {
+export function TestModal({ open, onClose, onSelectDifficulty }) {
   const { token } = theme.useToken();
 
   return (
