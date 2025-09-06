@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { Question } from '../../../exams/domain/entities/question.entity';
-import type { QuestionRepositoryPort } from '../../../exams/domain/ports/question-repository.port';
+import { Inject, Injectable } from '@nestjs/common';
+import { Question } from '../../domain/entities/question.entity';
+import type { QuestionRepositoryPort } from '../../domain/ports/question-repository.port';
+import { EXAM_QUESTION_REPO } from '../../tokens';
 
 export type PublishInput = {
   text: string;
+  type?: 'multiple_choice' | 'true_false';
   options?: unknown;
   source?: string;
   confidence?: number;
@@ -15,7 +17,7 @@ export type PublishResult =
   | { result: 'duplicate' }
   | { result: 'invalid'; questionId: string };
 
-const MAX_CONTENT_LENGTH = 2000;
+const MAX_CONTENT_LENGTH = 1500;
 const MIN_CONFIDENCE = Number(process.env.MIN_CONFIDENCE ?? 0.6);
 
 function normalizeText(input: string): string {
@@ -33,7 +35,10 @@ function normalizeText(input: string): string {
 
 @Injectable()
 export class PublishGeneratedQuestionUseCase {
-  constructor(private readonly questionRepo: QuestionRepositoryPort) {}
+  constructor(
+    @Inject(EXAM_QUESTION_REPO)
+    private readonly questionRepo: QuestionRepositoryPort,
+  ) {}
 
   async execute(input: PublishInput): Promise<PublishResult> {
     if (!input || typeof input.text !== 'string') {
@@ -55,7 +60,7 @@ export class PublishGeneratedQuestionUseCase {
       return { result: 'duplicate' };
     }
 
-    const question = Question.create(normalized);
+    const question = Question.create(normalized, input.type ?? 'multiple_choice');
     const saved = await this.questionRepo.save(question);
 
     const confidence = typeof input.confidence === 'number' ? input.confidence : 1;
