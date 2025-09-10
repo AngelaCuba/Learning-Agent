@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Modal, Space, Row, Button } from "antd";
+import { Modal, Space, Button } from "antd";
 import { BookOutlined, FileTextOutlined } from "@ant-design/icons";
 import { ProgressCard } from "../../components/reinforcement/ProgressCard";
 import { CourseCards } from "../../components/reinforcement/CourseCards";
@@ -49,10 +49,10 @@ export function Reinforcement() {
     >
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid gap-3">
-          <div className="mb-2"> {/* margen inferior más compacto */}
+          <div className="mb-2">
             <ProgressCard />
           </div>
-          <div className="-mt-2"> {/* margen superior negativo para subir las CourseCards */}
+          <div className="pt-2">
             <CourseCards courses={studentActivities.courses} />
           </div>
         </div>

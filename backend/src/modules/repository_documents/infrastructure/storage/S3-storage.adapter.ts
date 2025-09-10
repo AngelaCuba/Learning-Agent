@@ -47,6 +47,17 @@ export class S3StorageAdapter implements DocumentStoragePort {
    */
   async uploadDocument(req: UploadDocumentRequest): Promise<Document> {
     try {
+      console.log(' MinIO Config:', {
+        endpoint: this.endpoint,
+        bucketName: this.bucketName,
+        region: minioConfig.region,
+      });
+      console.log(' Upload Request:', {
+        originalName: req.originalName,
+        mimeType: req.mimeType,
+        size: req.size,
+      });
+      
       // Generar nombre único para el archivo
       const fileName = this.generateFileName(req.originalName);
 
@@ -80,8 +91,8 @@ export class S3StorageAdapter implements DocumentStoragePort {
       );
 
       return document;
-    } catch {
-      throw new Error('Error uploading document to MinIO');
+    } catch (error) {
+      throw new Error(`Error uploading document to MinIO: ${error.message || error}`);
     }
   }
 
@@ -103,8 +114,8 @@ export class S3StorageAdapter implements DocumentStoragePort {
       });
 
       return signedUrl;
-    } catch {
-      throw new Error('Error generating download URL');
+    } catch (error) {
+      throw new Error(`Error generating download URL: ${error.message || error}`);
     }
   }
 
@@ -341,6 +352,55 @@ export class S3StorageAdapter implements DocumentStoragePort {
       });
     } catch (error) {
       throw new Error(`Error downloading file from MinIO: ${error.message}`);
+    }
+  }
+
+  /**
+   * verifica si un archivo existe en el storage
+   * @param s3Key clave s3 del archivo
+   * @returns true si el archivo existe
+   */
+  async exists(s3Key: string): Promise<boolean> {
+    try {
+      const headCommand = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: s3Key,
+      });
+
+      await this.s3Client.send(headCommand);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * mueve un archivo de una ubicación a otra en el storage
+   * @param sourceKey clave s3 de origen
+   * @param destinationKey clave s3 de destino
+   */
+  async moveFile(sourceKey: string, destinationKey: string): Promise<void> {
+    try {
+      // copiar archivo a la nueva ubicación
+      const copyCommand = new CopyObjectCommand({
+        Bucket: this.bucketName,
+        CopySource: `${this.bucketName}/${sourceKey}`,
+        Key: destinationKey,
+      });
+
+      await this.s3Client.send(copyCommand);
+
+      // eliminar archivo original
+      const deleteCommand = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: sourceKey,
+      });
+
+      await this.s3Client.send(deleteCommand);
+    } catch (error) {
+      throw new Error(
+        `error moviendo archivo de ${sourceKey} a ${destinationKey}: ${error.message}`,
+      );
     }
   }
 }

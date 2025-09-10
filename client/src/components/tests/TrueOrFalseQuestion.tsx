@@ -1,20 +1,68 @@
-import React from "react";
-import { Card, Typography, theme } from "antd";
+import { Card, Typography, theme, Alert, Button } from "antd";
 
 const { Title } = Typography;
 
 interface TrueOrFalseQuestionProps {
-  onNext: () => void;
+  onNext?: () => void;
+  question?: string;
 }
 
-export default function TrueOrFalseQuestion({ onNext }: TrueOrFalseQuestionProps) {
+export default function TrueOrFalseQuestion({ onNext, question = "" }: TrueOrFalseQuestionProps) {
   const { token } = theme.useToken();
 
-  const handleSelect = (value: boolean) => {
-    setTimeout(() => {
-      onNext();
-    }, 300);
+  const handleSelect = (_value: boolean) => {
+    if (onNext) {
+      setTimeout(() => onNext(), 300);
+    } else {
+      setTimeout(() => window.location.reload(), 300);
+    }
   };
+
+  if (!question) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: token.marginLG,
+          padding: token.paddingLG,
+          backgroundColor: token.colorBgLayout,
+          minHeight: "100%",
+        }}
+      >
+        <Card
+          style={{
+            width: "100%",
+            maxWidth: 800,
+            textAlign: "center",
+            borderRadius: token.borderRadiusLG,
+            backgroundColor: token.colorBgContainer,
+            boxShadow: token.boxShadow,
+          }}
+        >
+          <Title level={3} style={{ margin: 0, color: token.colorTextHeading }}>
+            Pregunta no disponible
+          </Title>
+        </Card>
+
+        <Alert
+          message="No se encontró la pregunta"
+          description={
+            <div>
+              Esta vista espera recibir la pregunta desde el backend. Usa <strong>TestRunner</strong> para obtener preguntas generadas.
+            </div>
+          }
+          type="info"
+          showIcon
+        />
+
+        <div style={{ marginTop: 8 }}>
+          <Button onClick={() => (onNext ? onNext() : window.location.reload())}>Recargar</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -25,7 +73,7 @@ export default function TrueOrFalseQuestion({ onNext }: TrueOrFalseQuestionProps
         gap: token.marginLG,
         padding: token.paddingLG,
         backgroundColor: token.colorBgLayout,
-        minHeight: "100%"
+        minHeight: "100%",
       }}
     >
       <Card
@@ -35,17 +83,11 @@ export default function TrueOrFalseQuestion({ onNext }: TrueOrFalseQuestionProps
           textAlign: "center",
           borderRadius: token.borderRadiusLG,
           backgroundColor: token.colorBgContainer,
-          boxShadow: token.boxShadow
+          boxShadow: token.boxShadow,
         }}
       >
-        <Title
-          level={3}
-          style={{
-            margin: 0,
-            color: token.colorTextHeading
-          }}
-        >
-          El algoritmo de búsqueda binaria tiene una complejidad de O(log n)
+        <Title level={3} style={{ margin: 0, color: token.colorTextHeading }}>
+          {question}
         </Title>
       </Card>
 
@@ -55,7 +97,7 @@ export default function TrueOrFalseQuestion({ onNext }: TrueOrFalseQuestionProps
           gridTemplateColumns: "1fr 1fr",
           gap: token.marginLG,
           width: "100%",
-          maxWidth: 800
+          maxWidth: 800,
         }}
       >
         <div
@@ -71,7 +113,7 @@ export default function TrueOrFalseQuestion({ onNext }: TrueOrFalseQuestionProps
             cursor: "pointer",
             transition: "transform 0.15s ease, box-shadow 0.15s ease",
             boxShadow: token.boxShadow,
-            userSelect: "none"
+            userSelect: "none",
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLDivElement).style.transform = "scale(1.03)";
@@ -98,7 +140,7 @@ export default function TrueOrFalseQuestion({ onNext }: TrueOrFalseQuestionProps
             cursor: "pointer",
             transition: "transform 0.15s ease, box-shadow 0.15s ease",
             boxShadow: token.boxShadow,
-            userSelect: "none"
+            userSelect: "none",
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLDivElement).style.transform = "scale(1.03)";
