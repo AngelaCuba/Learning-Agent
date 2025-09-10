@@ -30,7 +30,7 @@ const InterviewFeedbackModal: React.FC<InterviewFeedbackModalProps> = ({
         <Title level={3} style={{ marginBottom: 0 }}>
           Entrevista finalizada
         </Title>
-        <Text>Tu entrevista ha concluido. Puedes descargar tu feedback.</Text>
+        <Text>Tu entrevista ha concluido. Puedes descargar tu feedback</Text>
 
         <Button
           type="primary"

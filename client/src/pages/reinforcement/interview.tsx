@@ -80,7 +80,7 @@ const InterviewChat: React.FC = () => {
         cancelText="No, continuar"
       >
         <p>¿Estás seguro de que quieres finalizar la entrevista?</p>
-        <p>Perderás el progreso actual.</p>
+        <p>Perderás el progreso actual</p>
       </Modal>
       <InterviewFeedbackModal
         open={showFeedback}
