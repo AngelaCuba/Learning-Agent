@@ -9,6 +9,8 @@ import TeoricQuestion from '../../components/interview/TeoricQuestion';
 import MultipleQuestion from '../../components/interview/MultipleQuestion';
 import { useThemeStore } from '../../store/themeStore';
 import InterviewFeedbackModal from '../../components/interview/InterviewFeedbackModal';
+import InterviewModal from '../../components/interview/InterviewModal';
+import { useStudentInterview } from '../../hooks/useStudentInterview';
 
 const InterviewChat: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +18,12 @@ const InterviewChat: React.FC = () => {
   const { currentType, isModalOpen, next, finish, confirmFinish, setIsModalOpen } = useInterviewFlow(['open', 'teoric', 'multiple', 'open']);
   const [showFeedback, setShowFeedback] = useState(false);
 
-  
+  const {
+    isInterviewModalOpen,
+    closeInterviewModal,
+    startExam
+  } = useStudentInterview();
+
   const handleConfirmFinish = () => {
     if (confirmFinish()) {
       setIsModalOpen(false);
@@ -79,6 +86,14 @@ const InterviewChat: React.FC = () => {
         open={showFeedback}
         onClose={() => setShowFeedback(false)}
         onDownload={handleDownloadFeedback}
+      />
+
+      <InterviewModal
+        open={isInterviewModalOpen}
+        onClose={closeInterviewModal}
+        onSelectDifficulty={(count) => {
+          startExam(count);
+        }}
       />
     </>
   );
