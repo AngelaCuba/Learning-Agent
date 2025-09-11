@@ -16,6 +16,7 @@ const InterviewChat: React.FC = () => {
   const { currentType, isModalOpen, next, finish, confirmFinish, setIsModalOpen } = useInterviewFlow(['open', 'teoric', 'multiple', 'open']);
   const [showFeedback, setShowFeedback] = useState(false);
 
+  
   const handleConfirmFinish = () => {
     if (confirmFinish()) {
       setIsModalOpen(false);
