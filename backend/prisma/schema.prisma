@@ -111,7 +111,11 @@ model StudentProfile {
   // relation 1:N
   enrollment    Enrollment[]
   attendance    Attendance[]
+
+  reinforcements ReinforcementProgress[]
+
   chatHistory   ChatHistory[]
+
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -551,8 +555,13 @@ model Course {
 
   // Relación con documentos para el contrato
   documents     Document[]
+
+  reinforcements ReinforcementProgress[]
+
+  
   quizQuestions    QuizQuestion[]
   interviewQuestions  InterviewQuestion[]
+
 
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -569,7 +578,11 @@ model Classes {
   // relation 1:N
   enrollment    Enrollment[]
   attendance Attendance[]
+
+
+  interviewQuestions InterviewQuestion[]
   documents     Document[]        // Documentos específicos para este período/clase
+
 
 
   courseId      String
@@ -601,23 +614,22 @@ model Enrollment {
    Reinforcement (entrevistas y examenes )
    =========================== */
    model QuizQuestion {
-    id         String   @id @default(uuid())
-    courseId    String
-    docId       String
-    text       String   @db.Text
-    type       String
-    options    Json?
-    createdAt  DateTime @default(now())
-    lastUsedAt DateTime?
 
-    // Relación con Course
-    course      Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
-    document    Document @relation(fields: [docId], references: [id], onDelete: Cascade)
-    @@index([courseId, docId])
-    @@index([createdAt])
-    @@index([lastUsedAt])
-    @@map("quiz_questions")
-  }
+  id            String   @id @default(uuid())
+  courseId      String
+  text          String   @db.Text
+  type          String
+  options       Json?
+  signature     String   @unique
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime?
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  @@index([courseId])
+  @@index([createdAt])
+  @@index([lastUsedAt])
+  @@map("quiz_questions")
+}
+
 
   model InterviewQuestion {
     id         String   @id @default(uuid())
@@ -650,6 +662,23 @@ model Attendance {
   updatedAt     DateTime          @updatedAt
 }
 
+
+model ReinforcementProgress {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+  
+  courseId    String
+  course      Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  score       Int            
+  maxScore    Int            
+  successRate Float          
+  createdAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@index([courseId])
+}
 model ChatHistory {
     id         String   @id @default(uuid())
     studentId      String            
@@ -669,5 +698,6 @@ model ChatHistory {
     @@index([docId, question])
     @@map("chat_history")
   }
+
 
 
