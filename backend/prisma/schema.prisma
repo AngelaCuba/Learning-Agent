@@ -111,7 +111,11 @@ model StudentProfile {
   // relation 1:N
   enrollment    Enrollment[]
   attendance    Attendance[]
+
   reinforcements ReinforcementProgress[]
+
+  chatHistory   ChatHistory[]
+
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -157,10 +161,17 @@ model Document {
   courseId         String?
   course           Course?                   @relation(fields: [courseId], references: [id])
 
+  // Relación opcional con Classes/Período para documentos específicos de un período
+  classId          String?
+  class            Classes?                  @relation(fields: [classId], references: [id])
+
   // Relations para RAG
   chunks           DocumentChunk[]
   categories       DocumentCategoryMapping[]
   processingJobs   ProcessingJob[]
+  quizQuestions    QuizQuestion[]
+  interviewQuestions  InterviewQuestion[]
+  chatHistory   ChatHistory[]
   documentIndex    DocumentIndex?
   
   // Información adicional extraída
@@ -423,85 +434,111 @@ enum ExerciseDifficulty {
  * ===========================
  */
 
-model Exam {
-  id             String   @id @default(uuid())
-  subject        String
-  difficulty     String
-  attempts       Int
-  totalQuestions Int
-  timeMinutes    Int
-  reference      String?  @db.Text
-
-  // distribución por tipo
-
-  mcqCount          Int   @default(0) // opción múltiple
-  trueFalseCount    Int   @default(0) // verdadero/falso
-  openAnalysisCount Int   @default(0) // abiertas: análisis
-  openExerciseCount Int   @default(0) // abiertas: ejercicio
-  approvedAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  questions       ExamQuestion[]
-
-  @@index([subject])
-
-  savedExam      SavedExam?
-}
-
-// === Preguntas de Examen ===
+// ---------- Enums ----------
 enum QuestionKind {
   MULTIPLE_CHOICE
   TRUE_FALSE
   OPEN_ANALYSIS
   OPEN_EXERCISE
 }
-// Estado de publicación del examen guardado
+
 enum ExamStorageStatus {
   Guardado
   Publicado
 }
 
-model SavedExam {
-  id        Int               @id @default(autoincrement())
-  title     String
-  content   Json
-  status    ExamStorageStatus @default(Guardado)
+model Exam {
+  id             String            @id @default(uuid())
+  title          String            @default("Examen")
+  difficulty     String
+  attempts       Int
+  timeMinutes    Int
+  reference      String?           @db.Text
+  status         ExamStorageStatus @default(Guardado)
 
-  examId    String?           @unique
-  exam      Exam?             @relation(fields: [examId], references: [id], onDelete: Cascade)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
-  // FK "lógicas" (sin relación Prisma)
-  courseId  String
-  teacherId String
+  // relation 1:N (Classes → Exams)
+  classId        String
+  class          Classes           @relation("ClassExams", fields: [classId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  createdAt DateTime          @default(now())
+  // questions
+  questions      ExamQuestion[]
 
-  @@index([courseId, createdAt])
-  @@index([teacherId, createdAt])
+  @@index([classId, createdAt])
+  @@index([title])
+  @@index([difficulty])
 }
 
 model ExamQuestion {
-  id                 String       @id @default(cuid())
-  examId             String
-  exam               Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  id        String       @id @default(cuid())
+  examId    String
+  exam      Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
 
-  kind               QuestionKind
-  text               String
+  kind      QuestionKind
+  text      String
+  order     Int
 
-  // Campos específicos por tipo
-  options            Json?        // MCQ
-  correctOptionIndex Int?         // MCQ
-  correctBoolean     Boolean?     // TRUE_FALSE
-  expectedAnswer     String?      // OPEN_*
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  order              Int
+  mcq        MCQ?
+  trueFalse  TrueFalse?
+  openAnalysis  OpenAnalysis?
+  openExercise  OpenExercise?
 
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-
-  @@unique([examId, order])       // no dos preguntas con el mismo orden en un examen
+  @@unique([examId, order])
   @@index([examId, order])
 }
+
+// ---------- Subtypes (1:1 with ExamQuestion) ----------
+model MCQ {
+  questionId         String     @id
+  question           ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  correctOptionIndex Int
+
+  // options (1:N)
+  options            MCQOption[]
+
+  @@index([correctOptionIndex])
+}
+
+model MCQOption {
+  id     String @id @default(cuid())
+  mcqId  String
+  mcq    MCQ    @relation(fields: [mcqId], references: [questionId], onDelete: Cascade)
+
+  // display order and text
+  idx    Int
+  text   String
+
+  @@unique([mcqId, idx])
+  @@index([mcqId])
+}
+
+model TrueFalse {
+  questionId String       @id
+  question   ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  answer     Boolean
+}
+
+model OpenAnalysis {
+  questionId     String       @id
+  question       ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  expectedAnswer String
+}
+
+model OpenExercise {
+  questionId     String       @id
+  question       ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  expectedAnswer String
+}
+
 
 /* ===========================
    Academic Management (classes and enrollment)
@@ -518,9 +555,13 @@ model Course {
 
   // Relación con documentos para el contrato
   documents     Document[]
+
   reinforcements ReinforcementProgress[]
 
-  quizQuestions QuizQuestion[]
+  
+  quizQuestions    QuizQuestion[]
+  interviewQuestions  InterviewQuestion[]
+
 
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -538,12 +579,18 @@ model Classes {
   enrollment    Enrollment[]
   attendance Attendance[]
 
+
   interviewQuestions InterviewQuestion[]
+  documents     Document[]        // Documentos específicos para este período/clase
+
 
 
   courseId      String
   course        Course            @relation(fields: [courseId], references: [id])
 
+  // relation 1:N
+  exams         Exam[]            @relation("ClassExams")
+  
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt @default(now())
 }
@@ -567,6 +614,7 @@ model Enrollment {
    Reinforcement (entrevistas y examenes )
    =========================== */
    model QuizQuestion {
+
   id            String   @id @default(uuid())
   courseId      String
   text          String   @db.Text
@@ -582,16 +630,18 @@ model Enrollment {
   @@map("quiz_questions")
 }
 
+
   model InterviewQuestion {
     id         String   @id @default(uuid())
-    classId    String
-    text       String   @db.Text
+    courseId      String            
+    course        Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    docId      String
+    document        Document  @relation(fields: [docId], references: [id], onDelete: Cascade)
+    json       Json?   
+    type      String
     createdAt  DateTime @default(now())
     lastUsedAt DateTime?
-
-    // Relación con Classes
-    class      Classes  @relation(fields: [classId], references: [id], onDelete: Cascade)
-    @@index([classId])
+    @@index([courseId, docId])
     @@index([createdAt])
     @@index([lastUsedAt])
     @@map("interview_questions")
@@ -612,6 +662,7 @@ model Attendance {
   updatedAt     DateTime          @updatedAt
 }
 
+
 model ReinforcementProgress {
   id          String   @id @default(uuid())
   studentId   String
@@ -628,3 +679,25 @@ model ReinforcementProgress {
   @@index([studentId])
   @@index([courseId])
 }
+model ChatHistory {
+    id         String   @id @default(uuid())
+    studentId      String            
+    docId      String
+    question    String
+    response  String
+    uses  Int     @default(0)
+
+    document        Document  @relation(fields: [docId], references: [id], onDelete: Cascade)
+    student     StudentProfile @relation(fields: [studentId], references: [userId], onDelete: Cascade)
+
+    createdAt  DateTime @default(now())
+    lastUsedAt DateTime?
+    @@index([studentId, docId])
+    @@index([createdAt])
+    @@index([lastUsedAt])
+    @@index([docId, question])
+    @@map("chat_history")
+  }
+
+
+
