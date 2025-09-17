@@ -3,22 +3,14 @@ import { Question } from '../../domain/entities/question.entity';
 import type { QuestionRepositoryPort } from '../../domain/ports/question-repository.port';
 import { createSignature } from '../../utils/createSignature';
 import type { Prisma } from '@prisma/client';
-import { PrismaService } from '../../../../core/prisma/prisma.service';
 
 @Injectable()
 export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
   private memory: Question[] = [];
+  private prisma: any | null;
 
-  constructor(private readonly prisma: PrismaService) {}
-
-  private get table(): any | null {
-    if (!this.prisma) return null;
-    return (this.prisma as any).generatedQuestion ?? (this.prisma as any).quizQuestion ?? null;
-  }
-
-  private get fkField(): string {
-    if (!this.prisma) return 'examId';
-    return (this.prisma as any).generatedQuestion ? 'examId' : (this.prisma as any).quizQuestion ? 'courseId' : 'examId';
+  constructor(prisma?: any) {
+    this.prisma = prisma ?? null;
   }
 
   private mapToEntity(record: any): Question {
@@ -29,14 +21,13 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
       options: record.options ?? null,
       status: (record.status as any) ?? 'generated',
       signature: record.signature ?? '',
+      examId: record.classId ?? record.examId ?? null,
       topic: record.topic ?? null,
       tokensGenerated: record.tokensGenerated ?? 0,
       createdAt: record.createdAt ?? new Date(),
       lastUsedAt: record.lastUsedAt ?? null,
       uses: record.uses ?? 0,
       difficulty: record.difficulty ?? null,
-      rawText: record.rawText ?? null,
-      metadata: record.metadata ?? null,
     });
   }
 
@@ -44,11 +35,8 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
     if (!question.signature) {
       question.signature = createSignature({ text: question.text, options: question.options, type: question.type });
     }
-    const tbl = this.table;
-    const fk = this.fkField;
-    const courseIdValue = (question.metadata && (question.metadata as any).courseId) ?? undefined;
-    if (this.prisma && tbl) {
-      const record = await tbl.upsert({
+    if (this.prisma) {
+      const record = await this.prisma.quizQuestion.upsert({
         where: { signature: question.signature },
         update: {
           text: question.text,
@@ -56,30 +44,20 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
           options: question.options as Prisma.JsonValue,
           lastUsedAt: question.lastUsedAt ?? undefined,
           difficulty: question.difficulty ?? undefined,
-          [fk]: courseIdValue,
+          classId: question.examId ?? undefined,
           topic: question.topic ?? undefined,
-          tokensGenerated: question.tokensGenerated ?? undefined,
-          uses: question.uses ?? undefined,
-          status: question.status ?? undefined,
-          rawText: (question.rawText as any) ?? undefined,
-          metadata: (question.metadata as any) ?? undefined,
         },
         create: {
           id: question.id,
-          [fk]: courseIdValue,
+          classId: question.examId ?? undefined,
           topic: question.topic ?? undefined,
           signature: question.signature,
           text: question.text,
           type: question.type,
           options: question.options as Prisma.JsonValue,
-          tokensGenerated: question.tokensGenerated ?? undefined,
           difficulty: question.difficulty ?? undefined,
           createdAt: question.createdAt ?? new Date(),
           lastUsedAt: question.lastUsedAt ?? undefined,
-          uses: question.uses ?? 0,
-          status: question.status ?? undefined,
-          rawText: (question.rawText as any) ?? undefined,
-          metadata: (question.metadata as any) ?? undefined,
         },
       });
       return this.mapToEntity(record);
@@ -95,17 +73,12 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
           lastUsedAt: new Date(),
           uses: (this.memory[existingIndex].uses ?? 0) + 1,
           difficulty: question.difficulty ?? null,
-          status: question.status ?? 'generated',
-          signature: question.signature ?? createSignature({ text: question.text, options: question.options, type: question.type }),
-          rawText: question.rawText ?? null,
-          metadata: question.metadata ?? null,
         });
         this.memory[existingIndex] = updated;
         return updated;
       }
       const created = Question.rehydrate({
         ...question,
-        signature: question.signature ?? createSignature({ text: question.text, options: question.options, type: question.type }),
         createdAt: question.createdAt ?? new Date(),
         uses: question.uses ?? 0,
       });
@@ -115,9 +88,8 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
   }
 
   async findById(id: string): Promise<Question | null> {
-    const tbl = this.table;
-    if (this.prisma && tbl) {
-      const record = await tbl.findUnique({ where: { id } });
+    if (this.prisma) {
+      const record = await this.prisma.quizQuestion.findUnique({ where: { id } });
       return record ? this.mapToEntity(record) : null;
     } else {
       const found = this.memory.find((q) => q.id === id);
@@ -126,9 +98,8 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
   }
 
   async findBySignature(signature: string): Promise<Question | null> {
-    const tbl = this.table;
-    if (this.prisma && tbl) {
-      const record = await tbl.findUnique({ where: { signature } });
+    if (this.prisma) {
+      const record = await this.prisma.quizQuestion.findUnique({ where: { signature } });
       return record ? this.mapToEntity(record) : null;
     } else {
       const found = this.memory.find((q) => q.signature === signature);
@@ -137,9 +108,8 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
   }
 
   async findAll(): Promise<Question[]> {
-    const tbl = this.table;
-    if (this.prisma && tbl) {
-      const records = await tbl.findMany();
+    if (this.prisma) {
+      const records = await this.prisma.quizQuestion.findMany();
       return records.map((r: any) => this.mapToEntity(r));
     } else {
       return this.memory.map((q) => Question.rehydrate(q));
@@ -147,13 +117,11 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
   }
 
   async findByStatus(_status: string, limit = 10, offset = 0): Promise<Question[]> {
-    const tbl = this.table;
-    if (this.prisma && tbl) {
-      const records = await tbl.findMany({
+    if (this.prisma) {
+      const records = await this.prisma.quizQuestion.findMany({
         take: limit,
         skip: offset,
         orderBy: { createdAt: 'desc' },
-        where: { status: _status },
       });
       return records.map((r: any) => this.mapToEntity(r));
     } else {
@@ -165,14 +133,12 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
   }
 
   async incrementUsage(id: string, _tokensUsed = 0): Promise<void> {
-    const tbl = this.table;
-    if (this.prisma && tbl) {
-      const data: any = { lastUsedAt: new Date() };
-      if (_tokensUsed) data.tokensGenerated = { increment: _tokensUsed };
-      if (_tokensUsed) data.uses = { increment: 1 };
-      await tbl.update({
+    if (this.prisma) {
+      await this.prisma.quizQuestion.update({
         where: { id },
-        data,
+        data: {
+          lastUsedAt: new Date(),
+        },
       });
     } else {
       const idx = this.memory.findIndex((q) => q.id === id);
@@ -189,9 +155,8 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
   }
 
   async deleteOlderThan(date: Date): Promise<number> {
-    const tbl = this.table;
-    if (this.prisma && tbl) {
-      const res = await tbl.deleteMany({
+    if (this.prisma) {
+      const res = await this.prisma.quizQuestion.deleteMany({
         where: { createdAt: { lt: date } },
       });
       return res.count;
@@ -202,56 +167,35 @@ export class PrismaQuestionRepositoryAdapter implements QuestionRepositoryPort {
     }
   }
 
-  async countByCourse(courseId: string): Promise<number> {
-    const tbl = this.table;
-    const fk = this.fkField;
-    if (this.prisma && tbl) {
-      const where: any = {};
-      where[fk] = courseId;
-      return tbl.count({ where });
+  async countByExam(examId: string): Promise<number> {
+    if (this.prisma) {
+      return this.prisma.quizQuestion.count({ where: { classId: examId } });
     } else {
-      return this.memory.filter((q) => ((q.metadata as any)?.courseId ?? null) === courseId).length;
+      return this.memory.filter((q) => q.examId === examId).length;
     }
   }
 
-  async pruneToLimitByCourse(courseId: string, limit: number): Promise<void> {
-    const tbl = this.table;
-    const fk = this.fkField;
-    if (this.prisma && tbl) {
+  async pruneToLimitByExam(examId: string, limit: number): Promise<void> {
+    if (this.prisma) {
       if (limit <= 0) {
-        const where: any = {};
-        where[fk] = courseId;
-        await tbl.deleteMany({ where });
+        await this.prisma.quizQuestion.deleteMany({ where: { classId: examId } });
         return;
       }
-      const where: any = {};
-      where[fk] = courseId;
-      const toDelete = await tbl.findMany({
-        where,
+      const toDelete = await this.prisma.quizQuestion.findMany({
+        where: { classId: examId },
         orderBy: { createdAt: 'desc' },
         skip: limit,
         select: { id: true },
       });
       const ids = toDelete.map((d: any) => d.id);
       if (ids.length > 0) {
-        await tbl.deleteMany({ where: { id: { in: ids } } });
+        await this.prisma.quizQuestion.deleteMany({ where: { id: { in: ids } } });
       }
     } else {
-      const items = this.memory
-        .filter((q) => ((q.metadata as any)?.courseId ?? null) === courseId)
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      const items = this.memory.filter((q) => q.examId === examId).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       const toKeep = items.slice(0, limit);
       const keepIds = new Set(toKeep.map((i) => i.id));
-      this.memory = this.memory.filter((q) => ((q.metadata as any)?.courseId ?? null) !== courseId || keepIds.has(q.id));
+      this.memory = this.memory.filter((q) => q.examId !== examId || keepIds.has(q.id));
     }
-  }
-
-  
-  async countByExam(examId: string): Promise<number> {
-    return this.countByCourse(examId);
-  }
-
-  async pruneToLimitByExam(examId: string, limit: number): Promise<void> {
-    return this.pruneToLimitByCourse(examId, limit);
   }
 }
